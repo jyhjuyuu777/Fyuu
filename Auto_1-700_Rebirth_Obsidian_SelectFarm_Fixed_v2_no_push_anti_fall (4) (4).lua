@@ -3465,3 +3465,141 @@ Box:AddToggle("Dungeon", {
         end
     end
 })
+--// =========================
+--// AUTO START BOX
+--// =========================
+
+local AutoStartBox = Tab1:AddRightGroupbox("Auto Start")
+
+local AutoStartEnabled = false
+local AutoStartThread = nil
+
+local function StartAutoStart()
+    if AutoStartThread then
+        return
+    end
+
+    AutoStartThread = task.spawn(function()
+
+        local started = false
+
+        local Bosses = {
+            "Garriot",
+            "Great Droid",
+            "Atom Max",
+            "Mecha Soldier"
+        }
+
+        local PART_PATH = {
+            "Dungeon",
+            "Stages",
+            "0",
+            "NextArea",
+            "Container",
+            "Visual"
+        }
+
+        local function GetCheckPart()
+            local obj = workspace
+
+            for _, name in ipairs(PART_PATH) do
+                obj = obj:FindFirstChild(name)
+
+                if not obj then
+                    return nil
+                end
+            end
+
+            return obj
+        end
+
+        while AutoStartEnabled do
+            task.wait(1)
+
+            local WorldMobs =
+                workspace:FindFirstChild("World Mobs")
+
+            local EventMobs =
+                WorldMobs and
+                WorldMobs:FindFirstChild("Event Mobs")
+
+            if not EventMobs then
+                continue
+            end
+
+            for _, bossName in ipairs(Bosses) do
+
+                if not AutoStartEnabled then
+                    break
+                end
+
+                local boss =
+                    EventMobs:FindFirstChild(bossName)
+
+                if boss then
+
+                    local humanoid =
+                        boss:FindFirstChildOfClass("Humanoid")
+
+                    if humanoid then
+
+                        if humanoid.Health > 0 then
+                            started = true
+                        end
+
+                        if started and humanoid.Health <= 0 then
+
+                            local CheckPart =
+                                GetCheckPart()
+
+                            if CheckPart then
+                                continue
+                            end
+
+                            started = false
+
+                            task.wait(4.04)
+
+                            if not AutoStartEnabled then
+                                break
+                            end
+
+                            pcall(function()
+                                game:GetService("ReplicatedStorage")
+                                    :WaitForChild("Packages")
+                                    :WaitForChild("_Index")
+                                    :WaitForChild("sleitnick_knit@1.4.7")
+                                    :WaitForChild("knit")
+                                    :WaitForChild("Services")
+                                    :WaitForChild("DungeonLobbyService")
+                                    :WaitForChild("RF")
+                                    :WaitForChild("StartDungeon")
+                                    :InvokeServer()
+                            end)
+
+                            break
+                        end
+                    end
+                end
+            end
+        end
+
+        AutoStartThread = nil
+    end)
+end
+
+AutoStartBox:AddToggle("AutoStart", {
+    Text = "Auto Start",
+    Default = false,
+
+    Callback = function(Value)
+        AutoStartEnabled = Value
+
+        if Value then
+            StartAutoStart()
+            print("[Auto Start] ON")
+        else
+            print("[Auto Start] OFF")
+        end
+    end
+})
