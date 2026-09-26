@@ -3603,4 +3603,89 @@ AutoStartBox:AddToggle("AutoStart", {
         end
     end
 })
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
 
+
+
+
+
+local AutoReplayEnabled = false
+local Triggered = false
+
+local DEAD_TIME = 13
+
+AutoStartbox:AddToggle("AutoStart", {
+    Text = "auto replay",
+    Default = false,
+
+    Callback = function(Value)
+        AutoReplayEnabled = Value
+
+        -- Khi tắt thì hủy bộ đếm hiện tại
+        if not Value then
+            Triggered = false
+        end
+    end,
+})
+
+task.spawn(function()
+    while task.wait(0.1) do
+        if not AutoReplayEnabled then
+            Triggered = false
+            continue
+        end
+
+        local Character = LocalPlayer.Character
+        local Humanoid = Character
+            and Character:FindFirstChildOfClass("Humanoid")
+
+        if Humanoid and Humanoid.Health <= 0 then
+
+            if not Triggered then
+                Triggered = true
+
+                task.wait(DEAD_TIME)
+
+                -- Kiểm tra toggle vẫn bật
+                if not AutoReplayEnabled then
+                    Triggered = false
+                    continue
+                end
+
+                -- Kiểm tra vẫn chết sau đủ 13 giây
+                Character = LocalPlayer.Character
+                Humanoid = Character
+                    and Character:FindFirstChildOfClass("Humanoid")
+
+                if Humanoid and Humanoid.Health <= 0 then
+
+                    local WorldMobs = workspace:FindFirstChild("World Mobs")
+                    local EventMobs = WorldMobs
+                        and WorldMobs:FindFirstChild("Event Mobs")
+
+                    if EventMobs then
+                        for _, Mob in ipairs(EventMobs:GetChildren()) do
+                            local MobHumanoid =
+                                Mob:FindFirstChildOfClass("Humanoid")
+
+                            if MobHumanoid then
+                                MobHumanoid.Health = 0
+                            end
+                        end
+                    end
+                end
+            end
+
+        else
+            -- Sống lại trước 13 giây -> hủy bộ đếm
+            Triggered = false
+        end
+    end
+end)
+
+Library:Notify({
+    Title = "Auto Replay",
+    Description = "Loaded successfully!",
+    Time = 3,
+})
