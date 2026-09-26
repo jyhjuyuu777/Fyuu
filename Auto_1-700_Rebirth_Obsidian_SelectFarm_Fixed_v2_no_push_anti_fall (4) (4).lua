@@ -3603,85 +3603,72 @@ AutoStartBox:AddToggle("AutoStart", {
         end
     end
 })
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-
 local AutoReplayEnabled = false
-local Triggered = false
+local AutoReplayThread = nil
 
-local DEAD_TIME = 13
-
-AutoStartbox:AddToggle("AutoStart", {
+AutoStartBox:AddToggle("AutoReplay", {
     Text = "auto replay",
     Default = false,
 
     Callback = function(Value)
         AutoReplayEnabled = Value
 
-        -- Khi tắt thì hủy bộ đếm hiện tại
-        if not Value then
-            Triggered = false
-        end
-    end,
-})
-
-task.spawn(function()
-    while task.wait(0.1) do
-        if not AutoReplayEnabled then
-            Triggered = false
-            continue
-        end
-
-        local Character = LocalPlayer.Character
-        local Humanoid = Character
-            and Character:FindFirstChildOfClass("Humanoid")
-
-        if Humanoid and Humanoid.Health <= 0 then
-
-            if not Triggered then
-                Triggered = true
-
-                task.wait(DEAD_TIME)
-
-                -- Kiểm tra toggle vẫn bật
-                if not AutoReplayEnabled then
-                    Triggered = false
-                    continue
-                end
-
-                -- Kiểm tra vẫn chết sau đủ 13 giây
-                Character = LocalPlayer.Character
-                Humanoid = Character
-                    and Character:FindFirstChildOfClass("Humanoid")
-
-                if Humanoid and Humanoid.Health <= 0 then
-
-                    local WorldMobs = workspace:FindFirstChild("World Mobs")
-                    local EventMobs = WorldMobs
-                        and WorldMobs:FindFirstChild("Event Mobs")
-
-                    if EventMobs then
-                        for _, Mob in ipairs(EventMobs:GetChildren()) do
-                            local MobHumanoid =
-                                Mob:FindFirstChildOfClass("Humanoid")
-
-                            if MobHumanoid then
-                                MobHumanoid.Health = 0
-                            end
-                        end
-                    end
-                end
+        if Value then
+            if AutoReplayThread then
+                return
             end
 
-        else
-            -- Sống lại trước 13 giây -> hủy bộ đếm
-            Triggered = false
-        end
-    end
-end)
+            AutoReplayThread = task.spawn(function()
+                local Triggered = false
 
-Library:Notify({
-    Title = "Auto Replay",
-    Description = "Loaded successfully!",
-    Time = 3,
+                while AutoReplayEnabled do
+                    task.wait(0.1)
+
+                    local Character = LocalPlayer.Character
+                    local Humanoid = Character
+                        and Character:FindFirstChildOfClass("Humanoid")
+
+                    if Humanoid and Humanoid.Health <= 0 then
+
+                        if not Triggered then
+                            Triggered = true
+
+                            task.wait(13)
+
+                            if not AutoReplayEnabled then
+                                Triggered = false
+                                break
+                            end
+
+                            Character = LocalPlayer.Character
+                            Humanoid = Character
+                                and Character:FindFirstChildOfClass("Humanoid")
+
+                            if Humanoid and Humanoid.Health <= 0 then
+                                local EventMobs =
+                                    workspace["World Mobs"]["Event Mobs"]
+
+                                for _, Mob in ipairs(EventMobs:GetChildren()) do
+                                    local MobHumanoid =
+                                        Mob:FindFirstChildOfClass("Humanoid")
+
+                                    if MobHumanoid then
+                                        MobHumanoid.Health = 0
+                                    end
+                                end
+                            end
+                        end
+
+                    else
+                        -- Hồi sinh trước 13 giây
+                        Triggered = false
+                    end
+                end
+
+                AutoReplayThread = nil
+            end)
+        else
+            AutoReplayThread = nil
+        end
+    end,
 })
