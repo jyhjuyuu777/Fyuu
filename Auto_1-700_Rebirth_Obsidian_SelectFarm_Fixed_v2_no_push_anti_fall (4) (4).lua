@@ -3603,3 +3603,89 @@ AutoStartBox:AddToggle("AutoStart", {
         end
     end
 })
+
+
+local AutoReplayEnabled = false
+local AutoReplayThread = nil
+
+local function StartAutoReplay()
+    if AutoReplayThread then
+        return
+    end
+
+    AutoReplayThread = task.spawn(function()
+
+        while AutoReplayEnabled do
+
+            local Character = game.Players.LocalPlayer.Character
+            local Humanoid = Character
+                and Character:FindFirstChildOfClass("Humanoid")
+
+            if Humanoid then
+
+                -- Chờ nhân vật chết
+                if Humanoid.Health <= 0 then
+
+                    print("[Auto Replay] Player died, waiting 15 seconds...")
+
+                    -- Chờ 15 giây
+                    for i = 15, 1, -1 do
+
+                        if not AutoReplayEnabled then
+                            break
+                        end
+
+                        task.wait(1)
+                    end
+
+                    if AutoReplayEnabled then
+
+                        print("[Auto Replay] Starting dungeon...")
+
+                        pcall(function()
+
+                            game:GetService("ReplicatedStorage")
+                                :WaitForChild("Packages")
+                                :WaitForChild("_Index")
+                                :WaitForChild("sleitnick_knit@1.4.7")
+                                :WaitForChild("knit")
+                                :WaitForChild("Services")
+                                :WaitForChild("DungeonLobbyService")
+                                :WaitForChild("RF")
+                                :WaitForChild("StartDungeon")
+                                :InvokeServer()
+
+                        end)
+
+                        -- Chờ nhân vật mới xuất hiện
+                        task.wait(3)
+                    end
+                end
+            end
+
+            task.wait(0.25)
+        end
+
+        AutoReplayThread = nil
+    end)
+end
+
+
+AutoStartBox:AddToggle("Auto Start", {
+    Text = "auto replay",
+
+    Default = false,
+
+    Callback = function(Value)
+
+        AutoReplayEnabled = Value
+
+        if Value then
+            StartAutoReplay()
+            print("[Auto Replay] ON")
+        else
+            print("[Auto Replay] OFF")
+        end
+
+    end
+})
