@@ -3672,20 +3672,9 @@ AutoStartBox:AddToggle("AutoReplay", {
         end
     end,
 })
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local DungeonCycleEnabled = false
-local DungeonCycleMinutes = 10
-local SelectedDungeons = {"Mecha"}
-
-local DungeonIds = {
-    Mecha = 1,
-    Atom = 2,
-    Droid = 3,
-    Garriot = 4
-}
-
-local ChangeDungeonRemote =
-    game:GetService("ReplicatedStorage")
+local ChangeDungeon = ReplicatedStorage
     :WaitForChild("Packages")
     :WaitForChild("_Index")
     :WaitForChild("sleitnick_knit@1.4.7")
@@ -3695,190 +3684,104 @@ local ChangeDungeonRemote =
     :WaitForChild("RF")
     :WaitForChild("ChangeDungeon")
 
-local CurrentIndex = 1
+local SelectedDungeons = {
+    Mecha = false,
+    Atom = false,
+    Droid = false,
+    Garriot = false
+}
 
+local AutoFarmMulti = false
+local AutoFarmThread
 
---// Kiểm tra Event Mobs còn mob sống hay không
-local function HasAliveEventMob()
-    local EventMobs = workspace["World Mobs"]:FindFirstChild("Event Mobs")
-
-    if not EventMobs then
-        return false
-    end
-
-    for _, Mob in ipairs(EventMobs:GetChildren()) do
-        local Humanoid = Mob:FindFirstChildOfClass("Humanoid")
-
-        if Humanoid and Humanoid.Health > 0 then
-            return true
-        end
-    end
-
-    return false
-end
-
-
---// Đợi tất cả Event Mobs chết
-local function WaitForEventMobsDead()
-    while DungeonCycleEnabled and HasAliveEventMob() do
-        task.wait(0.2)
-    end
-end
-
-
---// Đợi 3 giây sau khi mob chết
-local function WaitAfterDeath()
-    for i = 1, 30 do
-        if not DungeonCycleEnabled then
-            return false
-        end
-
-        task.wait(0.1)
-    end
-
-    return true
-end
-
-
---// Kích hoạt liên tục 30 giây
-local function ActivateFor30Seconds()
-    local StartTime = os.clock()
-
-    while DungeonCycleEnabled and (os.clock() - StartTime) < 30 do
-
-        --==================================================
-        -- CODE KÍCH HOẠT CỦA BẠN ĐỂ Ở ĐÂY
-        -- Ví dụ:
-        -- StartAutoStart()
-        --==================================================
-
-        task.wait(0.1)
-    end
-end
-
-
+-- Dropdown
 AutoStartBox:AddDropdown("DungeonSelect", {
-    Values = {"Mecha", "Atom", "Droid", "Garriot"},
-    Default = {"Mecha"},
+    Values = {
+        "Mecha",
+        "Atom",
+        "Droid",
+        "Garriot"
+    },
+
+    Default = {},
+
     Multi = true,
+
     Text = "Select Dungeon",
 
-    Callback = function(Value)
-        SelectedDungeons = Value
+    Callback = function(Values)
+        SelectedDungeons = {
+            Mecha = false,
+            Atom = false,
+            Droid = false,
+            Garriot = false
+        }
 
-        -- Reset index khi thay đổi danh sách
-        CurrentIndex = 1
-    end
+        for _, Name in pairs(Values) do
+            SelectedDungeons[Name] = true
+        end
+    end,
 })
 
-
-AutoStartBox:AddSlider("DungeonCycleMinutes", {
-    Text = "Cycle Minutes",
-    Default = 10,
-    Min = 1,
-    Max = 120,
-    Rounding = 0,
-
-    Callback = function(Value)
-        DungeonCycleMinutes = Value
-    end
-})
-
-
-AutoStartBox:AddToggle("DungeonCycle", {
-    Text = "Dungeon change multi farm",
+-- Auto Farm Multi
+AutoStartBox:AddToggle("AutoFarmMulti", {
+    Text = "auto farm multi",
     Default = false,
 
     Callback = function(Value)
-        DungeonCycleEnabled = Value
-    end
+        AutoFarmMulti = Value
+
+        if not Value then
+            return
+        end
+
+        if AutoFarmThread then
+            return
+        end
+
+        AutoFarmThread = task.spawn(function()
+
+            while AutoFarmMulti do
+                local IDs = {}
+
+                if SelectedDungeons.Mecha then
+                    table.insert(IDs, 1)
+                end
+
+                if SelectedDungeons.Atom then
+                    table.insert(IDs, 2)
+                end
+
+                if SelectedDungeons.Droid then
+                    table.insert(IDs, 3)
+                end
+
+                if SelectedDungeons.Garriot then
+                    table.insert(IDs, 4)
+                end
+
+                -- Không chọn gì
+                if #IDs == 0 then
+                    task.wait(0.2)
+                    continue
+                end
+
+                -- Chạy lần lượt các dungeon đã chọn
+                for _, ID in ipairs(IDs) do
+
+                    if not AutoFarmMulti then
+                        break
+                    end
+
+                    pcall(function()
+                        ChangeDungeon:InvokeServer(ID)
+                    end)
+
+                    task.wait(0.2)
+                end
+            end
+
+            AutoFarmThread = nil
+        end)
+    end,
 })
-
-
---// MAIN LOOP
-task.spawn(function()
-
-    while task.wait(0.2) do
-
-        if not DungeonCycleEnabled then
-            continue
-        end
-
-        if #SelectedDungeons < 1 then
-            continue
-        end
-
-
-        --========================================
-        -- 1. ĐẾM ĐỦ SỐ PHÚT
-        --========================================
-
-        local StartMinute = os.clock()
-        local RequiredTime = DungeonCycleMinutes * 60
-
-        while DungeonCycleEnabled
-            and (os.clock() - StartMinute) < RequiredTime do
-
-            task.wait(0.2)
-        end
-
-
-        if not DungeonCycleEnabled then
-            continue
-        end
-
-
-        --========================================
-        -- 2. TỚI PHÚT NHƯNG MOB CÒN SỐNG
-        --    -> CHỜ MOB CHẾT
-        --========================================
-
-        WaitForEventMobsDead()
-
-
-        if not DungeonCycleEnabled then
-            continue
-        end
-
-
-        --========================================
-        -- 3. MOB CHẾT HẾT -> ĐỢI 3 GIÂY
-        --========================================
-
-        if not WaitAfterDeath() then
-            continue
-        end
-
-
-        --========================================
-        -- 4. CHUYỂN DUNGEON
-        --========================================
-
-        CurrentIndex += 1
-
-        if CurrentIndex > #SelectedDungeons then
-            CurrentIndex = 1
-        end
-
-        local DungeonName = SelectedDungeons[CurrentIndex]
-        local DungeonId = DungeonIds[DungeonName]
-
-        if DungeonId then
-            pcall(function()
-                ChangeDungeonRemote:InvokeServer(DungeonId)
-            end)
-        end
-
-
-        --========================================
-        -- 5. KÍCH HOẠT LIÊN TỤC 30 GIÂY
-        --    30 GIÂY NÀY KHÔNG TÍNH VÀO PHÚT
-        --========================================
-
-        ActivateFor30Seconds()
-
-        -- Sau đoạn này vòng lặp quay lại
-        -- và bắt đầu tính ĐỦ SỐ PHÚT MỚI
-    end
-
-end)                
