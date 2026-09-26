@@ -3672,7 +3672,7 @@ AutoStartBox:AddToggle("AutoReplay", {
         end
     end,
 })
---// Dungeon Cycle
+
 local DungeonCycleEnabled = false
 local DungeonCycleMinutes = 10
 local SelectedDungeons = {"Mecha"}
@@ -3695,31 +3695,85 @@ local ChangeDungeonRemote =
     :WaitForChild("RF")
     :WaitForChild("ChangeDungeon")
 
+local CurrentIndex = 1
 
---// Dropdown Multi
+
+--// Kiểm tra Event Mobs còn mob sống hay không
+local function HasAliveEventMob()
+    local EventMobs = workspace["World Mobs"]:FindFirstChild("Event Mobs")
+
+    if not EventMobs then
+        return false
+    end
+
+    for _, Mob in ipairs(EventMobs:GetChildren()) do
+        local Humanoid = Mob:FindFirstChildOfClass("Humanoid")
+
+        if Humanoid and Humanoid.Health > 0 then
+            return true
+        end
+    end
+
+    return false
+end
+
+
+--// Đợi tất cả Event Mobs chết
+local function WaitForEventMobsDead()
+    while DungeonCycleEnabled and HasAliveEventMob() do
+        task.wait(0.2)
+    end
+end
+
+
+--// Đợi 3 giây sau khi mob chết
+local function WaitAfterDeath()
+    for i = 1, 30 do
+        if not DungeonCycleEnabled then
+            return false
+        end
+
+        task.wait(0.1)
+    end
+
+    return true
+end
+
+
+--// Kích hoạt liên tục 30 giây
+local function ActivateFor30Seconds()
+    local StartTime = os.clock()
+
+    while DungeonCycleEnabled and (os.clock() - StartTime) < 30 do
+
+        --==================================================
+        -- CODE KÍCH HOẠT CỦA BẠN ĐỂ Ở ĐÂY
+        -- Ví dụ:
+        -- StartAutoStart()
+        --==================================================
+
+        task.wait(0.1)
+    end
+end
+
+
 AutoStartBox:AddDropdown("DungeonSelect", {
-    Values = {
-        "Mecha",
-        "Atom",
-        "Droid",
-        "Garriot"
-    },
-
+    Values = {"Mecha", "Atom", "Droid", "Garriot"},
     Default = {"Mecha"},
     Multi = true,
-
     Text = "Select Dungeon",
 
     Callback = function(Value)
         SelectedDungeons = Value
+
+        -- Reset index khi thay đổi danh sách
+        CurrentIndex = 1
     end
 })
 
 
---// Slider phút
 AutoStartBox:AddSlider("DungeonCycleMinutes", {
-    Text = "dungeon change Minutes",
-
+    Text = "Cycle Minutes",
     Default = 10,
     Min = 1,
     Max = 120,
@@ -3731,9 +3785,8 @@ AutoStartBox:AddSlider("DungeonCycleMinutes", {
 })
 
 
---// Toggle
 AutoStartBox:AddToggle("DungeonCycle", {
-    Text = "Farm Multi dungeon",
+    Text = "Dungeon change multi farm",
     Default = false,
 
     Callback = function(Value)
@@ -3742,52 +3795,90 @@ AutoStartBox:AddToggle("DungeonCycle", {
 })
 
 
---// Chạy cycle
+--// MAIN LOOP
 task.spawn(function()
-    while task.wait(1) do
 
-        if DungeonCycleEnabled
-            and #SelectedDungeons >= 1 then
+    while task.wait(0.2) do
 
-            -- Chờ đủ số phút
-            local WaitTime = DungeonCycleMinutes * 60
-
-            for i = 1, WaitTime do
-                if not DungeonCycleEnabled then
-                    break
-                end
-
-                task.wait(1)
-            end
-
-            if not DungeonCycleEnabled then
-                continue
-            end
-
-            -- Đổi sang dungeon tiếp theo
-            local CurrentDungeon = SelectedDungeons[1]
-
-            -- Tìm dungeon hiện tại trong danh sách
-            for i, Name in ipairs(SelectedDungeons) do
-                if Name == CurrentDungeon then
-                    local NextIndex = i + 1
-
-                    if NextIndex > #SelectedDungeons then
-                        NextIndex = 1
-                    end
-
-                    CurrentDungeon = SelectedDungeons[NextIndex]
-                    break
-                end
-            end
-
-            local DungeonId = DungeonIds[CurrentDungeon]
-
-            if DungeonId then
-                pcall(function()
-                    ChangeDungeonRemote:InvokeServer(DungeonId)
-                end)
-            end
+        if not DungeonCycleEnabled then
+            continue
         end
+
+        if #SelectedDungeons < 1 then
+            continue
+        end
+
+
+        --========================================
+        -- 1. ĐẾM ĐỦ SỐ PHÚT
+        --========================================
+
+        local StartMinute = os.clock()
+        local RequiredTime = DungeonCycleMinutes * 60
+
+        while DungeonCycleEnabled
+            and (os.clock() - StartMinute) < RequiredTime do
+
+            task.wait(0.2)
+        end
+
+
+        if not DungeonCycleEnabled then
+            continue
+        end
+
+
+        --========================================
+        -- 2. TỚI PHÚT NHƯNG MOB CÒN SỐNG
+        --    -> CHỜ MOB CHẾT
+        --========================================
+
+        WaitForEventMobsDead()
+
+
+        if not DungeonCycleEnabled then
+            continue
+        end
+
+
+        --========================================
+        -- 3. MOB CHẾT HẾT -> ĐỢI 3 GIÂY
+        --========================================
+
+        if not WaitAfterDeath() then
+            continue
+        end
+
+
+        --========================================
+        -- 4. CHUYỂN DUNGEON
+        --========================================
+
+        CurrentIndex += 1
+
+        if CurrentIndex > #SelectedDungeons then
+            CurrentIndex = 1
+        end
+
+        local DungeonName = SelectedDungeons[CurrentIndex]
+        local DungeonId = DungeonIds[DungeonName]
+
+        if DungeonId then
+            pcall(function()
+                ChangeDungeonRemote:InvokeServer(DungeonId)
+            end)
+        end
+
+
+        --========================================
+        -- 5. KÍCH HOẠT LIÊN TỤC 30 GIÂY
+        --    30 GIÂY NÀY KHÔNG TÍNH VÀO PHÚT
+        --========================================
+
+        ActivateFor30Seconds()
+
+        -- Sau đoạn này vòng lặp quay lại
+        -- và bắt đầu tính ĐỦ SỐ PHÚT MỚI
     end
-end)
+
+end)                
