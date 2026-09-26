@@ -3606,16 +3606,12 @@ AutoStartBox:AddToggle("AutoStart", {
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
-
-
-
-
 local AutoReplayEnabled = false
 local Triggered = false
 
 local DEAD_TIME = 13
 
-box:AddToggle("AutoStart", {
+AutoStartbox:AddToggle("AutoStart", {
     Text = "auto replay",
     Default = false,
 
