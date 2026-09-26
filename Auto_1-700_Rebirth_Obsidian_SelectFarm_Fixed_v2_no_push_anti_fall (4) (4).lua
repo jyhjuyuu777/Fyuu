@@ -3604,7 +3604,6 @@ AutoStartBox:AddToggle("AutoStart", {
     end
 })
 
-
 local AutoReplayEnabled = false
 local AutoReplayThread = nil
 
@@ -3614,78 +3613,74 @@ local function StartAutoReplay()
     end
 
     AutoReplayThread = task.spawn(function()
-
         while AutoReplayEnabled do
-
             local Character = game.Players.LocalPlayer.Character
             local Humanoid = Character
                 and Character:FindFirstChildOfClass("Humanoid")
 
-            if Humanoid then
+            if Humanoid and Humanoid.Health <= 0 then
+                print("[Auto Replay] HP = 0 → bắt đầu đếm 15 giây")
 
-                -- Chờ nhân vật chết
-                if Humanoid.Health <= 0 then
+                local Cancelled = false
 
-                    print("[Auto Replay] Player died, waiting 15 seconds...")
-
-                    -- Chờ 15 giây
-                    for i = 15, 1, -1 do
-
-                        if not AutoReplayEnabled then
-                            break
-                        end
-
-                        task.wait(1)
+                -- Đếm 15 giây kể từ lúc HP = 0
+                for i = 15, 1, -1 do
+                    if not AutoReplayEnabled then
+                        Cancelled = true
+                        break
                     end
 
-                    if AutoReplayEnabled then
-
-                        print("[Auto Replay] Starting dungeon...")
-
-                        pcall(function()
-
-                            game:GetService("ReplicatedStorage")
-                                :WaitForChild("Packages")
-                                :WaitForChild("_Index")
-                                :WaitForChild("sleitnick_knit@1.4.7")
-                                :WaitForChild("knit")
-                                :WaitForChild("Services")
-                                :WaitForChild("DungeonLobbyService")
-                                :WaitForChild("RF")
-                                :WaitForChild("StartDungeon")
-                                :InvokeServer()
-
-                        end)
-
-                        -- Chờ nhân vật mới xuất hiện
-                        task.wait(3)
+                    -- Nếu HP hồi lại > 0 → hủy
+                    if Humanoid.Health > 0 then
+                        print("[Auto Replay] HP đã hồi → hủy StartDungeon")
+                        Cancelled = true
+                        break
                     end
+
+                    task.wait(1)
+                end
+
+                -- Chỉ Start nếu vẫn còn chết sau đủ 15 giây
+                if not Cancelled
+                    and AutoReplayEnabled
+                    and Humanoid
+                    and Humanoid.Health <= 0 then
+
+                    print("[Auto Replay] Đã chết đủ 15 giây → StartDungeon")
+
+                    pcall(function()
+                        game:GetService("ReplicatedStorage")
+                            :WaitForChild("Packages")
+                            :WaitForChild("_Index")
+                            :WaitForChild("sleitnick_knit@1.4.7")
+                            :WaitForChild("knit")
+                            :WaitForChild("Services")
+                            :WaitForChild("DungeonLobbyService")
+                            :WaitForChild("RF")
+                            :WaitForChild("StartDungeon")
+                            :InvokeServer()
+                    end)
+
+                    task.wait(3)
                 end
             end
 
-            task.wait(0.25)
+            task.wait(0.1)
         end
 
         AutoReplayThread = nil
     end)
 end
 
-
-AutoStartBox:AddToggle("Auto Start", {
+AutoStartBox:AddToggle("AutoStart", {
     Text = "auto replay",
-
     Default = false,
 
     Callback = function(Value)
-
         AutoReplayEnabled = Value
 
         if Value then
             StartAutoReplay()
-            print("[Auto Replay] ON")
-        else
-            print("[Auto Replay] OFF")
         end
-
     end
 })
