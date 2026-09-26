@@ -3672,3 +3672,122 @@ AutoStartBox:AddToggle("AutoReplay", {
         end
     end,
 })
+--// Dungeon Cycle
+local DungeonCycleEnabled = false
+local DungeonCycleMinutes = 10
+local SelectedDungeons = {"Mecha"}
+
+local DungeonIds = {
+    Mecha = 1,
+    Atom = 2,
+    Droid = 3,
+    Garriot = 4
+}
+
+local ChangeDungeonRemote =
+    game:GetService("ReplicatedStorage")
+    :WaitForChild("Packages")
+    :WaitForChild("_Index")
+    :WaitForChild("sleitnick_knit@1.4.7")
+    :WaitForChild("knit")
+    :WaitForChild("Services")
+    :WaitForChild("DungeonLobbyService")
+    :WaitForChild("RF")
+    :WaitForChild("ChangeDungeon")
+
+
+--// Dropdown Multi
+AutoStartBox:AddDropdown("DungeonSelect", {
+    Values = {
+        "Mecha",
+        "Atom",
+        "Droid",
+        "Garriot"
+    },
+
+    Default = {"Mecha"},
+    Multi = true,
+
+    Text = "Select Dungeon",
+
+    Callback = function(Value)
+        SelectedDungeons = Value
+    end
+})
+
+
+--// Slider phút
+AutoStartBox:AddSlider("DungeonCycleMinutes", {
+    Text = "dungeon change Minutes",
+
+    Default = 10,
+    Min = 1,
+    Max = 120,
+    Rounding = 0,
+
+    Callback = function(Value)
+        DungeonCycleMinutes = Value
+    end
+})
+
+
+--// Toggle
+AutoStartBox:AddToggle("DungeonCycle", {
+    Text = "Farm Multi dungeon",
+    Default = false,
+
+    Callback = function(Value)
+        DungeonCycleEnabled = Value
+    end
+})
+
+
+--// Chạy cycle
+task.spawn(function()
+    while task.wait(1) do
+
+        if DungeonCycleEnabled
+            and #SelectedDungeons >= 1 then
+
+            -- Chờ đủ số phút
+            local WaitTime = DungeonCycleMinutes * 60
+
+            for i = 1, WaitTime do
+                if not DungeonCycleEnabled then
+                    break
+                end
+
+                task.wait(1)
+            end
+
+            if not DungeonCycleEnabled then
+                continue
+            end
+
+            -- Đổi sang dungeon tiếp theo
+            local CurrentDungeon = SelectedDungeons[1]
+
+            -- Tìm dungeon hiện tại trong danh sách
+            for i, Name in ipairs(SelectedDungeons) do
+                if Name == CurrentDungeon then
+                    local NextIndex = i + 1
+
+                    if NextIndex > #SelectedDungeons then
+                        NextIndex = 1
+                    end
+
+                    CurrentDungeon = SelectedDungeons[NextIndex]
+                    break
+                end
+            end
+
+            local DungeonId = DungeonIds[CurrentDungeon]
+
+            if DungeonId then
+                pcall(function()
+                    ChangeDungeonRemote:InvokeServer(DungeonId)
+                end)
+            end
+        end
+    end
+end)
