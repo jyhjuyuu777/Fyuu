@@ -3615,7 +3615,7 @@ local Triggered = false
 
 local DEAD_TIME = 13
 
-AutoStartbox:AddToggle("AutoStart", {
+box:AddToggle("AutoStart", {
     Text = "auto replay",
     Default = false,
 
